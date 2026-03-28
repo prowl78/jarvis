@@ -98,6 +98,14 @@ bot.on('message', async (msg) => {
       return;
     }
 
+    if (intent === 'ideas') {
+      // Ideas writes directly to Telegram — bypass JARVIS speak layer
+      console.log('[index] routing to ideas with message:', text);
+      const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
+      await ideas(text, sendToTelegram);
+      return;
+    }
+
     if (agent) {
       agentOutput = await agent(text);
     } else {
