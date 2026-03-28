@@ -17,6 +17,11 @@ const EXAMPLES = [
   { message: 'directory submission for onlyhuman',  intent: 'marketing' },
   { message: 'write copy for',                      intent: 'marketing' },
   { message: 'draft an email',                      intent: 'marketing' },
+  { message: 'find influencers for shrody',         intent: 'distribution' },
+  { message: 'outreach for @creator',               intent: 'distribution' },
+  { message: 'ndis directories',                    intent: 'distribution' },
+  { message: 'submit to ndis directory',            intent: 'distribution' },
+  { message: 'tiktok strategy for shrody',          intent: 'distribution' },
 ];
 
 function buildPrompt(message) {

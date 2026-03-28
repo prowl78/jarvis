@@ -11,5 +11,6 @@ module.exports = [
   { intent: 'trainer',      agent: 'trainer',         description: 'exercise, workouts, fitness, training plans' },
   { intent: 'psychologist', agent: 'psychologist',    description: 'mental health, stress, feelings, personal reflection' },
   { intent: 'security',     agent: 'security',        description: 'Mac security, suspicious processes, system integrity' },
+  { intent: 'distribution', agent: 'distribution',    description: 'influencer research, outreach DMs, NDIS directory submissions, TikTok strategy, creator briefs' },
   { intent: 'general',      agent: null,              description: 'everything else, conversation, questions, advice' },
 ];
