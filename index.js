@@ -75,6 +75,13 @@ bot.on('message', async (msg) => {
     const agent = intentMap[intent];
     let agentOutput;
 
+    if (intent === 'builder') {
+      // Builder streams directly to Telegram — bypass JARVIS speak layer
+      const sendToTelegram = (text) => bot.sendMessage(msg.chat.id, text);
+      await builder(text, sendToTelegram);
+      return;
+    }
+
     if (agent) {
       agentOutput = await agent(text);
     } else {
