@@ -1,6 +1,7 @@
 const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { getTimeContext } = require('../lib/time-context');
 
 const PROJECT_PATHS = {
   'shrody-core': '/Users/bgame/projects/shrody-core',
@@ -92,8 +93,12 @@ async function builder(userMessage, sendToTelegram, context = {}) {
   console.log('[builder] PROJECT DETECTED:', projectDir, '->', cwd);
 
   const preview = generatedPrompt.slice(0, 200);
+  const timeCtx = context.timeCtx || getTimeContext();
+  const lateNightNote = timeCtx.timeOfDay === 'late night'
+    ? "\n\nIt's late — want to start this now or queue it for tomorrow?"
+    : '';
   await sendToTelegram(
-    `Ready to build in ${cwd}:\n\n${preview}...\n\nReply 'yes' to execute or 'cancel' to abort.`
+    `Ready to build in ${cwd}:\n\n${preview}...\n\nReply 'yes' to execute or 'cancel' to abort.${lateNightNote}`
   );
 
   const confirmation = await waitForConfirmation(chatId, pendingConfirmations);

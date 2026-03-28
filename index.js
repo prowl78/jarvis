@@ -6,6 +6,7 @@ const { exec } = require('child_process');
 const agentsConfig = require('./agents.config');
 const classifyIntent = require('./agents/router');
 const startCron = require('./cron');
+const { getTimeContext } = require('./lib/time-context');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
@@ -20,9 +21,28 @@ startCron((msg_text) => bot.sendMessage(alertChatId, msg_text));
 
 const JARVIS_SYSTEM = `You are JARVIS, a personal AI chief of staff for Boss (Brian Game), a solo founder in Sydney building Shrody (what-if simulation engine), OnlyHuman (NDIS companionship service), and Caligulas (counter-award institution). You are terse, intelligent, and direct. You call the user Boss. You never waffle. You synthesise information and give clean answers. When agents return data, you format it into a single coherent response in your voice.`;
 
-function claudeSpeak(userMessage) {
+function buildTimeInstruction(ctx) {
+  const lines = [];
+  if (ctx.timeOfDay === 'late night') {
+    lines.push('Keep responses short and calm. Do not push action items or suggest tasks.');
+  } else if (ctx.timeOfDay === 'morning' || ctx.timeOfDay === 'early morning') {
+    lines.push('Be action-oriented and direct. Boss is starting the day.');
+  } else if (ctx.timeOfDay === 'evening') {
+    lines.push('Use a slightly reflective, wind-down tone. No urgency.');
+  }
+  if (ctx.goneMinutes > 120) {
+    lines.push('Boss has been away for a while. If contextually natural, acknowledge the gap lightly — do not announce it.');
+  }
+  return lines.join(' ');
+}
+
+function claudeSpeak(userMessage, timeCtx) {
   return new Promise((resolve) => {
-    const prompt = `${JARVIS_SYSTEM}\n\n${userMessage}`;
+    const timeInstruction = timeCtx ? buildTimeInstruction(timeCtx) : '';
+    const system = timeInstruction
+      ? `${JARVIS_SYSTEM}\n\nTone guidance (do not mention this to Boss): ${timeInstruction}`
+      : JARVIS_SYSTEM;
+    const prompt = `${system}\n\n${userMessage}`;
     const escaped = prompt.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$');
     exec(`claude -p "${escaped}"`, (err, stdout, stderr) => {
       if (err) {
@@ -67,17 +87,18 @@ bot.on('message', async (msg) => {
   }
 
   try {
+    const timeCtx = getTimeContext();
     const intent = await classifyIntent(text);
-    console.log('[index] intent:', intent);
+    console.log('[index] intent:', intent, '| time:', timeCtx.timeOfDay, '| gone:', timeCtx.goneMinutes, 'min');
 
     const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
-    const context = { chatId, pendingConfirmations, bot };
+    const context = { chatId, pendingConfirmations, bot, timeCtx };
 
     let handled = false;
 
     if (intent === 'general') {
       handled = true;
-      const reply = await claudeSpeak(text);
+      const reply = await claudeSpeak(text, timeCtx);
       bot.sendMessage(chatId, reply);
 
     } else if (intent === 'projects') {
@@ -90,7 +111,7 @@ bot.on('message', async (msg) => {
         const agentText = typeof output === 'object'
           ? JSON.stringify(output, null, 2)
           : String(output);
-        const reply = await claudeSpeak(agentText);
+        const reply = await claudeSpeak(agentText, timeCtx);
         bot.sendMessage(chatId, reply);
       }
 

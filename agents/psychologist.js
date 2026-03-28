@@ -1,4 +1,5 @@
 const { readProfile, saveProfile, appendLog, stepOnboarding, claudeRun } = require('../lib/life-agent');
+const { getTimeContext } = require('../lib/time-context');
 
 const AGENT = 'psychologist';
 const LOG   = 'psych';
@@ -32,9 +33,23 @@ Your approach:
 
 Crisis protocol: If any message contains signals of self-harm or suicidal ideation, immediately and warmly recommend he contact a professional or crisis line. Do not try to handle it alone.`;
 
-function buildSystem(profile) {
-  if (!profile) return SYSTEM_BASE;
-  return `${SYSTEM_BASE}\n\nOnboarding context:\n${profile}`;
+function buildTimeAddendum(timeCtx) {
+  if (!timeCtx) return '';
+  const lines = [];
+  if (timeCtx.timeOfDay === 'late night') {
+    lines.push('It is late at night. Be especially gentle and slow. Keep responses shorter. No action-pushing. Let him rest if that\'s what\'s needed.');
+  } else if (timeCtx.timeOfDay === 'early morning') {
+    lines.push('It is early morning. He may be fragile or raw. Tread gently.');
+  }
+  if (timeCtx.goneMinutes > 180) {
+    lines.push('He has been away for a while. He may be returning after a hard stretch. Hold that possibility lightly.');
+  }
+  return lines.length ? `\n\nTime-aware guidance (do not mention the time): ${lines.join(' ')}` : '';
+}
+
+function buildSystem(profile, timeCtx) {
+  const base = profile ? `${SYSTEM_BASE}\n\nOnboarding context:\n${profile}` : SYSTEM_BASE;
+  return base + buildTimeAddendum(timeCtx);
 }
 
 async function psychologist(userMessage, sendToTelegram, context = {}) {
@@ -51,7 +66,8 @@ async function psychologist(userMessage, sendToTelegram, context = {}) {
     profile = readProfile(AGENT);
   }
 
-  const system = buildSystem(profile);
+  const timeCtx = context.timeCtx || getTimeContext();
+  const system = buildSystem(profile, timeCtx);
 
   // Crisis detection — highest priority
   if (CRISIS_SIGNALS.test(userMessage)) {
