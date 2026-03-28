@@ -12,5 +12,6 @@ module.exports = [
   { intent: 'psychologist', agent: 'psychologist',    description: 'mental health, stress, feelings, personal reflection' },
   { intent: 'security',     agent: 'security',        description: 'Mac security, suspicious processes, system integrity' },
   { intent: 'distribution', agent: 'distribution',    description: 'influencer research, outreach DMs, NDIS directory submissions, TikTok strategy, creator briefs' },
+  { intent: 'seo',          agent: 'seo',             description: 'SEO audit, AIO optimisation, meta tags, content gaps, AI search visibility for Shrody' },
   { intent: 'general',      agent: null,              description: 'everything else, conversation, questions, advice' },
 ];

@@ -22,6 +22,10 @@ const EXAMPLES = [
   { message: 'ndis directories',                    intent: 'distribution' },
   { message: 'submit to ndis directory',            intent: 'distribution' },
   { message: 'tiktok strategy for shrody',          intent: 'distribution' },
+  { message: 'aio audit for shrody',                intent: 'seo' },
+  { message: 'update meta for shrody',              intent: 'seo' },
+  { message: 'content gaps for shrody',             intent: 'seo' },
+  { message: 'aio checklist',                       intent: 'seo' },
 ];
 
 function buildPrompt(message) {
