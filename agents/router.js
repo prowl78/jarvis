@@ -30,6 +30,16 @@ const EXAMPLES = [
   { message: 'market scan for onlyhuman',           intent: 'competitor' },
   { message: 'monitor ai decision making',          intent: 'competitor' },
   { message: 'positioning for shrody',              intent: 'competitor' },
+  { message: 'what should I eat today',             intent: 'nutrition' },
+  { message: 'meal plan for the week',              intent: 'nutrition' },
+  { message: 'log coffee and eggs for breakfast',   intent: 'nutrition' },
+  { message: 'give me a workout',                   intent: 'fitness' },
+  { message: 'log 50 min walk',                     intent: 'fitness' },
+  { message: 'fitness plan for a desk worker',      intent: 'fitness' },
+  { message: "I'm struggling today",                intent: 'psych' },
+  { message: 'journal',                             intent: 'psych' },
+  { message: 'fuck this I hate everything',         intent: 'psych' },
+  { message: 'I need to vent',                      intent: 'psych' },
 ];
 
 function buildPrompt(message) {
