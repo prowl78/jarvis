@@ -46,6 +46,12 @@ const EXAMPLES = [
   { message: 'compact psych-log',                   intent: 'tokens' },
   { message: 'memory status',                       intent: 'tokens' },
   { message: 'context size',                        intent: 'tokens' },
+  { message: 'improvement scan',                    intent: 'improvement' },
+  { message: 'find new agents',                     intent: 'improvement' },
+  { message: 'check github trending',               intent: 'improvement' },
+  { message: 'find better approach for',            intent: 'improvement' },
+  { message: 'npm outdated',                        intent: 'improvement' },
+  { message: 'how can jarvis improve',              intent: 'improvement' },
 ];
 
 function buildPrompt(message) {

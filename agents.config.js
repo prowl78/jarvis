@@ -15,5 +15,6 @@ module.exports = [
   { intent: 'seo',          agent: 'seo',             description: 'SEO audit, AIO optimisation, meta tags, content gaps, AI search visibility for Shrody' },
   { intent: 'competitor',   agent: 'competitor',      description: 'market scans, competitive analysis, positioning, trend monitoring for any product' },
   { intent: 'tokens',       agent: 'token-manager',   description: 'token usage, memory compaction, log management, context size monitoring' },
+  { intent: 'improvement',  agent: 'improvement',     description: 'JARVIS improvements, new agent ideas, GitHub research, npm updates, open source tools, better approaches' },
   { intent: 'general',      agent: null,              description: 'everything else, conversation, questions, advice' },
 ];

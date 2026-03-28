@@ -224,7 +224,21 @@ function startCron(sendAlert) {
     }
   }, { timezone: TZ });
 
-  console.log('[cron] started: Vercel monitor + morning brief + idea nudge + psych check-in + build nudge + weekly summary + security scan + large file check');
+  // Improvement scan — every 72 hours at 6pm AEST (Mon/Thu pattern via */3 day-of-month)
+  cron.schedule('0 18 */3 * *', async () => {
+    console.log('[improvement] running proactive improvement scan');
+    try {
+      const { proactiveScan } = require('./agents/improvement');
+      const alert = await proactiveScan();
+      if (alert) {
+        await sendAlert(alert);
+      }
+    } catch (err) {
+      console.error('[cron] improvement scan failed:', err.message);
+    }
+  }, { timezone: TZ });
+
+  console.log('[cron] started: Vercel monitor + morning brief + idea nudge + psych check-in + build nudge + weekly summary + security scan + large file check + improvement scan');
 }
 
 module.exports = startCron;
