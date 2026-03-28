@@ -73,42 +73,47 @@ bot.on('message', async (msg) => {
     const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
     const context = { chatId, pendingConfirmations };
 
-    // general intent — pass straight to JARVIS speak layer
+    let handled = false;
+
     if (intent === 'general') {
+      handled = true;
       const reply = await claudeSpeak(text);
       bot.sendMessage(chatId, reply);
-      return;
-    }
 
-    // projects intent — agent returns data, pipe through JARVIS speak layer
-    if (intent === 'projects') {
+    } else if (intent === 'projects') {
+      handled = true;
       const agentFn = loadAgent('project-manager');
-      if (!agentFn) { bot.sendMessage(chatId, 'Agent not yet built'); return; }
-      const output = await agentFn(text);
-      const agentText = typeof output === 'object'
-        ? JSON.stringify(output, null, 2)
-        : String(output);
-      const reply = await claudeSpeak(agentText);
+      if (!agentFn) {
+        bot.sendMessage(chatId, 'Agent not yet built');
+      } else {
+        const output = await agentFn(text);
+        const agentText = typeof output === 'object'
+          ? JSON.stringify(output, null, 2)
+          : String(output);
+        const reply = await claudeSpeak(agentText);
+        bot.sendMessage(chatId, reply);
+      }
+
+    } else {
+      const configEntry = agentsConfig.find(c => c.intent === intent);
+      if (configEntry) {
+        const agentFn = loadAgent(configEntry.agent);
+        if (agentFn) {
+          handled = true;
+          console.log(`[index] routing to ${configEntry.agent}`);
+          await agentFn(text, sendToTelegram, context);
+        } else {
+          handled = true;
+          bot.sendMessage(chatId, 'Agent not yet built');
+        }
+      }
+    }
+
+    if (!handled) {
+      console.warn('[index] unhandled intent:', intent);
+      const reply = await claudeSpeak(text);
       bot.sendMessage(chatId, reply);
-      return;
     }
-
-    // All other intents — agent manages its own Telegram messaging
-    const configEntry = agentsConfig.find(c => c.intent === intent);
-    if (!configEntry) {
-      bot.sendMessage(chatId, "I didn't understand that.");
-      return;
-    }
-
-    const agentFn = loadAgent(configEntry.agent);
-
-    if (!agentFn) {
-      bot.sendMessage(chatId, 'Agent not yet built');
-      return;
-    }
-
-    console.log(`[index] routing to ${configEntry.agent}`);
-    await agentFn(text, sendToTelegram, context);
 
   } catch (err) {
     console.error('[index] handler error:', err);
