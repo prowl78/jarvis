@@ -106,6 +106,14 @@ bot.on('message', async (msg) => {
       return;
     }
 
+    if (intent === 'finance') {
+      // Finance replies directly to Telegram — bypass JARVIS speak layer
+      console.log('[index] routing to finance with message:', text);
+      const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
+      await finance(text, sendToTelegram);
+      return;
+    }
+
     if (agent) {
       agentOutput = await agent(text);
     } else {
