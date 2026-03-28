@@ -40,6 +40,12 @@ const EXAMPLES = [
   { message: 'journal',                             intent: 'psych' },
   { message: 'fuck this I hate everything',         intent: 'psych' },
   { message: 'I need to vent',                      intent: 'psych' },
+  { message: 'token status',                        intent: 'tokens' },
+  { message: 'how are we doing on tokens',          intent: 'tokens' },
+  { message: 'compact logs',                        intent: 'tokens' },
+  { message: 'compact psych-log',                   intent: 'tokens' },
+  { message: 'memory status',                       intent: 'tokens' },
+  { message: 'context size',                        intent: 'tokens' },
 ];
 
 function buildPrompt(message) {

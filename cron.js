@@ -209,7 +209,22 @@ function startCron(sendAlert) {
     }
   }, { timezone: TZ });
 
-  console.log('[cron] started: Vercel monitor + morning brief + idea nudge + psych check-in + build nudge + weekly summary + security scan');
+  // Large file check — every Saturday at 8:00am AEST
+  cron.schedule('0 8 * * 6', async () => {
+    console.log('[cron] checking Obsidian file sizes');
+    try {
+      const { checkLargeFiles } = require('./agents/token-manager');
+      const alerts = await checkLargeFiles();
+      for (const name of alerts) {
+        await sendAlert(`⚠️ ${name} is getting large. Send 'compact ${name.split(' ')[0]}' to summarise.`);
+      }
+      if (!alerts.length) console.log('[cron] no large files found');
+    } catch (err) {
+      console.error('[cron] large file check failed:', err.message);
+    }
+  }, { timezone: TZ });
+
+  console.log('[cron] started: Vercel monitor + morning brief + idea nudge + psych check-in + build nudge + weekly summary + security scan + large file check');
 }
 
 module.exports = startCron;
