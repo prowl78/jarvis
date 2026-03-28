@@ -1,4 +1,4 @@
-const { readProfile, saveProfile, appendLog, runOnboarding, claudeRun } = require('../lib/life-agent');
+const { readProfile, saveProfile, appendLog, stepOnboarding, claudeRun } = require('../lib/life-agent');
 
 const AGENT = 'nutritionist';
 const LOG   = 'nutrition';
@@ -38,13 +38,13 @@ async function nutritionist(userMessage, sendToTelegram, context = {}) {
 
   // Onboarding
   let profile = readProfile(AGENT);
-  if (!profile && chatId && pendingConfirmations) {
-    const answers = await runOnboarding(ONBOARDING_QUESTIONS, chatId, pendingConfirmations, sendToTelegram);
-    const content = `# Nutritionist Profile\n\n**Dietary restrictions:** ${answers[0]}\n**Meal habits:** ${answers[1]}\n**Energy pattern:** ${answers[2]}\n`;
-    saveProfile(AGENT, content);
-    profile = content;
+  if (!profile) {
+    const result = await stepOnboarding(AGENT, chatId, userMessage, ONBOARDING_QUESTIONS, (answers) => {
+      return `# Nutritionist Profile\n\n**Dietary restrictions:** ${answers[0]}\n**Meal habits:** ${answers[1]}\n**Energy pattern:** ${answers[2]}\n`;
+    }, sendToTelegram);
+    if (!result.done) return;
     await sendToTelegram("Got it. Profile saved. What do you need?");
-    return;
+    profile = readProfile(AGENT);
   }
 
   const system = buildSystem(profile);

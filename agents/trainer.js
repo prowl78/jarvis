@@ -1,4 +1,4 @@
-const { readProfile, saveProfile, appendLog, runOnboarding, claudeRun } = require('../lib/life-agent');
+const { readProfile, saveProfile, appendLog, stepOnboarding, claudeRun } = require('../lib/life-agent');
 
 const AGENT = 'trainer';
 const LOG   = 'fitness';
@@ -36,13 +36,13 @@ async function trainer(userMessage, sendToTelegram, context = {}) {
 
   // Onboarding
   let profile = readProfile(AGENT);
-  if (!profile && chatId && pendingConfirmations) {
-    const answers = await runOnboarding(ONBOARDING_QUESTIONS, chatId, pendingConfirmations, sendToTelegram);
-    const content = `# Trainer Profile\n\n**Current movement (beyond walk):** ${answers[0]}\n**Injuries/limitations:** ${answers[1]}\n**Goal:** ${answers[2]}\n`;
-    saveProfile(AGENT, content);
-    profile = content;
+  if (!profile) {
+    const result = await stepOnboarding(AGENT, chatId, userMessage, ONBOARDING_QUESTIONS, (answers) => {
+      return `# Trainer Profile\n\n**Current movement (beyond walk):** ${answers[0]}\n**Injuries/limitations:** ${answers[1]}\n**Goal:** ${answers[2]}\n`;
+    }, sendToTelegram);
+    if (!result.done) return;
     await sendToTelegram("Noted. Profile saved. What do you need?");
-    return;
+    profile = readProfile(AGENT);
   }
 
   const system = buildSystem(profile);

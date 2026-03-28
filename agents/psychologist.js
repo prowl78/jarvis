@@ -1,4 +1,4 @@
-const { readProfile, saveProfile, appendLog, runOnboarding, claudeRun } = require('../lib/life-agent');
+const { readProfile, saveProfile, appendLog, stepOnboarding, claudeRun } = require('../lib/life-agent');
 
 const AGENT = 'psychologist';
 const LOG   = 'psych';
@@ -42,13 +42,13 @@ async function psychologist(userMessage, sendToTelegram, context = {}) {
 
   // Onboarding
   let profile = readProfile(AGENT);
-  if (!profile && chatId && pendingConfirmations) {
-    const answers = await runOnboarding(ONBOARDING_QUESTIONS, chatId, pendingConfirmations, sendToTelegram);
-    const content = `# Psych Profile\n\n**Current state:** ${answers[0]}\n**Heaviest thing:** ${answers[1]}\n**Support style:** ${answers[2]}\n`;
-    saveProfile(AGENT, content);
-    profile = content;
+  if (!profile) {
+    const result = await stepOnboarding(AGENT, chatId, userMessage, ONBOARDING_QUESTIONS, (answers) => {
+      return `# Psych Profile\n\n**Current state:** ${answers[0]}\n**Heaviest thing:** ${answers[1]}\n**Support style:** ${answers[2]}\n`;
+    }, sendToTelegram);
+    if (!result.done) return;
     await sendToTelegram("Thank you for sharing that. I've got it. This space is here whenever you need it.");
-    return;
+    profile = readProfile(AGENT);
   }
 
   const system = buildSystem(profile);
