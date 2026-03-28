@@ -77,7 +77,11 @@ bot.on('message', async (msg) => {
 
     if (intent === 'builder') {
       // Builder streams directly to Telegram — bypass JARVIS speak layer
-      const sendToTelegram = (text) => bot.sendMessage(msg.chat.id, text);
+      console.log('[index] routing to builder with message:', text);
+      const sendToTelegram = (msg_text) => {
+        console.log('[index] sendToTelegram called with:', msg_text.slice(0, 80));
+        return bot.sendMessage(msg.chat.id, msg_text);
+      };
       await builder(text, sendToTelegram);
       return;
     }

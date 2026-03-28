@@ -36,6 +36,8 @@ async function generatePrompt(userMessage) {
 }
 
 async function builder(userMessage, sendToTelegram) {
+  console.log('[builder] BUILDER CALLED with:', userMessage);
+
   // Immediately acknowledge
   await sendToTelegram('Building now Boss...');
 
@@ -43,8 +45,9 @@ async function builder(userMessage, sendToTelegram) {
   let generatedPrompt;
   try {
     generatedPrompt = await generatePrompt(userMessage);
-    console.log('[builder] generated prompt length:', generatedPrompt.length);
+    console.log('[builder] PROMPT GENERATED:', generatedPrompt);
   } catch (err) {
+    console.error('[builder] generatePrompt error:', err.message);
     await sendToTelegram(`Failed to generate prompt: ${err.message}`);
     return { success: false, reason: err.message };
   }
@@ -52,7 +55,7 @@ async function builder(userMessage, sendToTelegram) {
   // Step 2: detect project
   const projectDir = detectProject(userMessage + ' ' + generatedPrompt);
   const cwd = `${os.homedir()}/${projectDir}`;
-  console.log('[builder] project dir:', cwd);
+  console.log('[builder] PROJECT DETECTED:', projectDir);
 
   await sendToTelegram(`Detected project: ${projectDir}. Running Claude Code...`);
 
@@ -65,17 +68,26 @@ async function builder(userMessage, sendToTelegram) {
       .replace(/`/g, '\\`')
       .replace(/\$/g, '\\$');
 
-    const child = spawn(
-      'bash',
-      ['-c', `cd "${cwd}" && claude --dangerously-skip-permissions -p "${escapedPrompt}"`],
-      { env: process.env }
-    );
+    const cmd = `cd "${cwd}" && claude --dangerously-skip-permissions -p "${escapedPrompt}"`;
+    console.log('[builder] SPAWNING CLAUDE CODE in', cwd);
+    console.log('[builder] full command:', cmd.slice(0, 200));
+
+    const child = spawn('bash', ['-c', cmd], { env: process.env });
 
     const outputChunks = [];
     const errorChunks = [];
 
-    child.stdout.on('data', (d) => outputChunks.push(d.toString()));
-    child.stderr.on('data', (d) => errorChunks.push(d.toString()));
+    child.stdout.on('data', (d) => {
+      const chunk = d.toString();
+      console.log('[builder] stdout chunk:', chunk.slice(0, 120));
+      outputChunks.push(chunk);
+    });
+
+    child.stderr.on('data', (d) => {
+      const chunk = d.toString();
+      console.error('[builder] stderr chunk:', chunk.slice(0, 120));
+      errorChunks.push(chunk);
+    });
 
     // Progress ping every 30 seconds
     let elapsed = 30;
@@ -86,6 +98,7 @@ async function builder(userMessage, sendToTelegram) {
 
     child.on('close', async (code) => {
       clearInterval(ticker);
+      console.log('[builder] process closed with code:', code);
 
       const stdout = outputChunks.join('').trim();
       const stderr = errorChunks.join('').trim();
@@ -96,6 +109,7 @@ async function builder(userMessage, sendToTelegram) {
         resolve({ success: true, output: stdout });
       } else {
         const errMsg = stderr.slice(-800) || stdout.slice(-800) || `Exit code ${code}`;
+        console.error('[builder] build failed:', errMsg.slice(0, 200));
         await sendToTelegram(`Build failed (exit ${code}):\n\n${errMsg}`);
         resolve({ success: false, reason: errMsg });
       }
@@ -103,6 +117,7 @@ async function builder(userMessage, sendToTelegram) {
 
     child.on('error', async (err) => {
       clearInterval(ticker);
+      console.error('[builder] spawn error:', err.message);
       await sendToTelegram(`Spawn error: ${err.message}`);
       resolve({ success: false, reason: err.message });
     });
