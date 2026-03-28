@@ -193,7 +193,23 @@ function startCron(sendAlert) {
   // Weekly summary — every Sunday at 5:00pm AEST
   cron.schedule('0 17 * * 0', () => weeklySummary(sendAlert), { timezone: TZ });
 
-  console.log('[cron] started: Vercel monitor + morning brief + idea nudge + psych check-in + build nudge + weekly summary');
+  // Security scan — every Sunday at 9:00am AEST, alert only on RED flags
+  cron.schedule('0 9 * * 0', async () => {
+    console.log('[cron] running weekly security scan');
+    try {
+      const { fullScan } = require('./agents/security');
+      const { summary, worstFlag } = await fullScan();
+      if (worstFlag === 'RED') {
+        await sendAlert(`🔴 Weekly Security Scan — Issues Found\n\n${summary}`);
+      } else {
+        console.log('[cron] security scan clean, no alert sent');
+      }
+    } catch (err) {
+      console.error('[cron] security scan failed:', err.message);
+    }
+  }, { timezone: TZ });
+
+  console.log('[cron] started: Vercel monitor + morning brief + idea nudge + psych check-in + build nudge + weekly summary + security scan');
 }
 
 module.exports = startCron;
