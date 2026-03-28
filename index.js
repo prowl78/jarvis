@@ -3,10 +3,16 @@ const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 const { exec } = require('child_process');
 
+const fs = require('fs');
+const axios = require('axios');
 const agentsConfig = require('./agents.config');
 const classifyIntent = require('./agents/router');
 const startCron = require('./cron');
 const { getTimeContext } = require('./lib/time-context');
+const { handleIncomingImage } = require('./lib/image-handler');
+
+const TMP_DIR = path.join(__dirname, 'tmp');
+fs.mkdirSync(TMP_DIR, { recursive: true });
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
@@ -71,6 +77,28 @@ function loadAgent(agentName) {
     throw err;
   }
 }
+
+bot.on('photo', async (msg) => {
+  const chatId = msg.chat.id;
+  const caption = msg.caption || '';
+  const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
+
+  try {
+    // Highest resolution = last element in photo array
+    const fileId = msg.photo[msg.photo.length - 1].file_id;
+    const fileLink = await bot.getFileLink(fileId);
+    const tmpPath = path.join(TMP_DIR, `input-${Date.now()}.png`);
+
+    const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
+    fs.writeFileSync(tmpPath, Buffer.from(response.data));
+    console.log(`[index] photo saved to ${tmpPath}, caption: "${caption}"`);
+
+    await handleIncomingImage(tmpPath, caption, chatId, bot, sendToTelegram);
+  } catch (err) {
+    console.error('[index] photo handler error:', err.message);
+    await sendToTelegram('Had trouble processing that image, Boss.');
+  }
+});
 
 bot.on('message', async (msg) => {
   console.log(msg);
