@@ -1,10 +1,8 @@
 const { exec, spawn } = require('child_process');
-const os = require('os');
 
-const PROJECT_DIRS = {
-  shrody: 'shrody-core',
-  'shrody-core': 'shrody-core',
-  jarvis: 'jarvis',
+const PROJECT_PATHS = {
+  'shrody-core': '/Users/bgame/projects/shrody-core',
+  jarvis: '/Users/bgame/jarvis',
 };
 
 const PROJECT_KEYWORDS = {
@@ -30,16 +28,23 @@ function shellExec(cmd) {
 }
 
 async function generatePrompt(userMessage) {
-  const meta = `You are writing Claude Code prompts for a solo founder. Projects: Shrody (Next.js/Supabase/Vercel at ~/shrody-core), JARVIS (Node.js at ~/jarvis). Write a complete specific Claude Code prompt with no placeholders, exact file paths, exact code. End every prompt with: use --dangerously-skip-permissions, and when done commit all changes and push to GitHub. Task: ${userMessage}`;
+  const meta = `You are writing Claude Code prompts for a solo founder. Projects: Shrody (Next.js/Supabase/Vercel at /Users/bgame/projects/shrody-core), JARVIS (Node.js at /Users/bgame/jarvis). Write a complete specific Claude Code prompt with no placeholders, exact file paths, exact code. End every prompt with: use --dangerously-skip-permissions, and when done commit all changes and push to GitHub. Task: ${userMessage}`;
   const escaped = meta.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$');
   return shellExec(`claude -p "${escaped}"`);
 }
 
-async function builder(userMessage, sendToTelegram) {
+function waitForConfirmation(chatId, pendingConfirmations) {
+  return new Promise((resolve) => {
+    pendingConfirmations.set(chatId, (replyText) => {
+      resolve(replyText.trim().toLowerCase());
+    });
+  });
+}
+
+async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId) {
   console.log('[builder] BUILDER CALLED with:', userMessage);
 
-  // Immediately acknowledge
-  await sendToTelegram('Building now Boss...');
+  await sendToTelegram('Generating prompt Boss...');
 
   // Step 1: generate the claude code prompt
   let generatedPrompt;
@@ -54,14 +59,27 @@ async function builder(userMessage, sendToTelegram) {
 
   // Step 2: detect project
   const projectDir = detectProject(userMessage + ' ' + generatedPrompt);
-  const cwd = `${os.homedir()}/${projectDir}`;
-  console.log('[builder] PROJECT DETECTED:', projectDir);
+  const cwd = PROJECT_PATHS[projectDir];
+  console.log('[builder] PROJECT DETECTED:', projectDir, '->', cwd);
 
-  await sendToTelegram(`Detected project: ${projectDir}. Running Claude Code...`);
+  // Step 3: confirmation gate
+  const preview = generatedPrompt.slice(0, 200);
+  await sendToTelegram(
+    `Ready to build in ${cwd}:\n\n${preview}...\n\nReply 'yes' to execute or 'cancel' to abort.`
+  );
 
-  // Step 3: shell out — stream so we can send progress ticks
+  const confirmation = await waitForConfirmation(chatId, pendingConfirmations);
+  console.log('[builder] confirmation received:', confirmation);
+
+  if (confirmation !== 'yes') {
+    await sendToTelegram('Cancelled.');
+    return { success: false, reason: 'cancelled by user' };
+  }
+
+  await sendToTelegram('Building now Boss...');
+
+  // Step 4: shell out — stream so we can send progress ticks
   return new Promise((resolve) => {
-    // Escape the generated prompt for shell embedding
     const escapedPrompt = generatedPrompt
       .replace(/\\/g, '\\\\')
       .replace(/"/g, '\\"')

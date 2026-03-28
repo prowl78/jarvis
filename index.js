@@ -11,6 +11,9 @@ const ops = require('./agents/ops');
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
+// chatId -> callback(replyText) — used by builder confirmation gate
+const pendingConfirmations = new Map();
+
 console.log('JARVIS listening');
 
 const JARVIS_SYSTEM = `You are JARVIS, a personal AI chief of staff for Boss (Brian Game), a solo founder in Sydney building Shrody (what-if simulation engine), OnlyHuman (NDIS companionship service), and Caligulas (counter-award institution). You are terse, intelligent, and direct. You call the user Boss. You never waffle. You synthesise information and give clean answers. When agents return data, you format it into a single coherent response in your voice.`;
@@ -67,6 +70,15 @@ bot.on('message', async (msg) => {
   console.log(msg);
 
   const text = msg.text || '';
+  const chatId = msg.chat.id;
+
+  // If builder is waiting for a yes/cancel confirmation, hand off and return
+  if (pendingConfirmations.has(chatId)) {
+    const callback = pendingConfirmations.get(chatId);
+    pendingConfirmations.delete(chatId);
+    callback(text);
+    return;
+  }
 
   try {
     const intent = await classifyIntent(text);
@@ -80,9 +92,9 @@ bot.on('message', async (msg) => {
       console.log('[index] routing to builder with message:', text);
       const sendToTelegram = (msg_text) => {
         console.log('[index] sendToTelegram called with:', msg_text.slice(0, 80));
-        return bot.sendMessage(msg.chat.id, msg_text);
+        return bot.sendMessage(chatId, msg_text);
       };
-      await builder(text, sendToTelegram);
+      await builder(text, sendToTelegram, pendingConfirmations, chatId);
       return;
     }
 
