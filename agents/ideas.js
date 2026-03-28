@@ -1,5 +1,5 @@
 const { exec } = require('child_process');
-const { Client } = require('@notionhq/client');
+const obsidian = require('../lib/obsidian');
 
 const BUCKETS = ['shrody_backlog', 'story_bytes', 'new_product', 'onlyhuman', 'caligulas', 'jarvis'];
 
@@ -16,7 +16,7 @@ function classifyIdea(ideaText) {
     exec(`claude -p "${escaped}"`, (err, stdout) => {
       if (err) {
         console.error('[ideas] classify error:', err.message);
-        resolve('new_product'); // safe fallback
+        resolve('new_product');
         return;
       }
       const result = stdout.trim().toLowerCase();
@@ -25,55 +25,9 @@ function classifyIdea(ideaText) {
   });
 }
 
-async function appendToNotion(ideaText, bucket, timestamp) {
-  const apiKey = process.env.NOTION_API_KEY;
-  const pageId = process.env.NOTION_VULCANIUM_PAGE_ID;
-
-  if (!apiKey) throw new Error('NOTION_API_KEY not set');
-  if (!pageId) throw new Error('NOTION_VULCANIUM_PAGE_ID not set');
-
-  const notion = new Client({ auth: apiKey });
-
-  await notion.blocks.children.append({
-    block_id: pageId,
-    children: [
-      {
-        object: 'block',
-        type: 'callout',
-        callout: {
-          rich_text: [
-            {
-              type: 'text',
-              text: { content: `[${bucket}]  ${ideaText}` },
-              annotations: { bold: false },
-            },
-          ],
-          icon: { type: 'emoji', emoji: '💡' },
-          color: 'default',
-        },
-      },
-      {
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [
-            {
-              type: 'text',
-              text: { content: timestamp },
-              annotations: { color: 'gray', italic: true },
-            },
-          ],
-        },
-      },
-    ],
-  });
-}
-
 async function ideas(userMessage, sendToTelegram) {
   const ideaText = stripPrefix(userMessage);
   console.log('[ideas] idea text:', ideaText);
-
-  const timestamp = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' });
 
   let bucket;
   try {
@@ -85,11 +39,11 @@ async function ideas(userMessage, sendToTelegram) {
   }
 
   try {
-    await appendToNotion(ideaText, bucket, timestamp);
-    console.log('[ideas] appended to Notion');
+    obsidian.appendIdea(bucket, ideaText);
+    console.log('[ideas] appended to Obsidian');
   } catch (err) {
-    console.error('[ideas] Notion write failed:', err.message);
-    await sendToTelegram(`Classified as ${bucket} but failed to save to Notion: ${err.message}`);
+    console.error('[ideas] Obsidian write failed:', err.message);
+    await sendToTelegram(`Classified as ${bucket} but failed to save: ${err.message}`);
     return { success: false, reason: err.message };
   }
 
