@@ -1,4 +1,6 @@
 const { exec, spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const PROJECT_PATHS = {
   'shrody-core': '/Users/bgame/projects/shrody-core',
@@ -10,12 +12,14 @@ const PROJECT_KEYWORDS = {
   jarvis: ['jarvis', 'telegram', 'bot', 'index.js', 'agent'],
 };
 
+const AGENTS_CONFIG_PATH = path.join(__dirname, '..', 'agents.config.js');
+
 function detectProject(text) {
   const lower = text.toLowerCase();
   for (const [dir, keywords] of Object.entries(PROJECT_KEYWORDS)) {
     if (keywords.some((kw) => lower.includes(kw))) return dir;
   }
-  return 'jarvis'; // default
+  return 'jarvis';
 }
 
 function shellExec(cmd) {
@@ -27,8 +31,32 @@ function shellExec(cmd) {
   });
 }
 
+// If the generated prompt creates a new agent, register it in agents.config.js
+function registerNewAgent(agentName, description) {
+  try {
+    const config = require(AGENTS_CONFIG_PATH);
+    const intent = agentName.replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+    const already = config.find(c => c.intent === intent || c.agent === agentName);
+    if (already) return;
+
+    // Read raw file and insert new entry before the 'general' catch-all
+    let src = fs.readFileSync(AGENTS_CONFIG_PATH, 'utf8');
+    const newEntry = `  { intent: '${intent}', agent: '${agentName}', description: '${description}' },\n`;
+    src = src.replace(
+      /(\s*\{ intent: 'general')/,
+      `${newEntry}$1`
+    );
+    fs.writeFileSync(AGENTS_CONFIG_PATH, src, 'utf8');
+    // Bust require cache so next load picks up the change
+    delete require.cache[require.resolve(AGENTS_CONFIG_PATH)];
+    console.log(`[builder] registered new agent "${agentName}" in agents.config.js`);
+  } catch (err) {
+    console.error('[builder] failed to register agent:', err.message);
+  }
+}
+
 async function generatePrompt(userMessage) {
-  const meta = `You are writing Claude Code prompts for a solo founder. Projects: Shrody (Next.js/Supabase/Vercel at /Users/bgame/projects/shrody-core), JARVIS (Node.js at /Users/bgame/jarvis). Write a complete specific Claude Code prompt with no placeholders, exact file paths, exact code. End every prompt with: use --dangerously-skip-permissions, and when done commit all changes, push to GitHub, and run pm2 restart jarvis. Task: ${userMessage}`;
+  const meta = `You are writing Claude Code prompts for a solo founder. Projects: Shrody (Next.js/Supabase/Vercel at /Users/bgame/projects/shrody-core), JARVIS (Node.js at /Users/bgame/jarvis). Write a complete specific Claude Code prompt with no placeholders, exact file paths, exact code. If the task creates a new JARVIS agent file in /Users/bgame/jarvis/agents/, also add it to /Users/bgame/jarvis/agents.config.js following the existing format. End every prompt with: use --dangerously-skip-permissions, and when done commit all changes, push to GitHub, and run pm2 restart jarvis. Task: ${userMessage}`;
   const escaped = meta.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$');
   return shellExec(`claude -p "${escaped}"`);
 }
@@ -41,12 +69,14 @@ function waitForConfirmation(chatId, pendingConfirmations) {
   });
 }
 
-async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId) {
+// Signature: builder(message, sendToTelegram, context)
+// context = { chatId, pendingConfirmations }
+async function builder(userMessage, sendToTelegram, context = {}) {
+  const { chatId, pendingConfirmations } = context;
   console.log('[builder] BUILDER CALLED with:', userMessage);
 
   await sendToTelegram('Generating prompt Boss...');
 
-  // Step 1: generate the claude code prompt
   let generatedPrompt;
   try {
     generatedPrompt = await generatePrompt(userMessage);
@@ -54,15 +84,13 @@ async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId
   } catch (err) {
     console.error('[builder] generatePrompt error:', err.message);
     await sendToTelegram(`Failed to generate prompt: ${err.message}`);
-    return { success: false, reason: err.message };
+    return;
   }
 
-  // Step 2: detect project
   const projectDir = detectProject(userMessage + ' ' + generatedPrompt);
   const cwd = PROJECT_PATHS[projectDir];
   console.log('[builder] PROJECT DETECTED:', projectDir, '->', cwd);
 
-  // Step 3: confirmation gate
   const preview = generatedPrompt.slice(0, 200);
   await sendToTelegram(
     `Ready to build in ${cwd}:\n\n${preview}...\n\nReply 'yes' to execute or 'cancel' to abort.`
@@ -73,12 +101,11 @@ async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId
 
   if (confirmation !== 'yes') {
     await sendToTelegram('Cancelled.');
-    return { success: false, reason: 'cancelled by user' };
+    return;
   }
 
   await sendToTelegram('Building now Boss...');
 
-  // Step 4: shell out — stream so we can send progress ticks
   return new Promise((resolve) => {
     const escapedPrompt = generatedPrompt
       .replace(/\\/g, '\\\\')
@@ -91,7 +118,6 @@ async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId
     console.log('[builder] full command:', cmd.slice(0, 200));
 
     const child = spawn('bash', ['-c', cmd], { env: process.env });
-
     const outputChunks = [];
     const errorChunks = [];
 
@@ -107,7 +133,6 @@ async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId
       errorChunks.push(chunk);
     });
 
-    // Progress ping every 30 seconds
     let elapsed = 30;
     const ticker = setInterval(async () => {
       await sendToTelegram(`Still building... (${elapsed}s elapsed)`);
@@ -124,12 +149,12 @@ async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId
       if (code === 0) {
         const summary = stdout.slice(-1000) || 'Done.';
         await sendToTelegram(`Build complete.\n\n${summary}`);
-        resolve({ success: true, output: stdout });
+        resolve();
       } else {
         const errMsg = stderr.slice(-800) || stdout.slice(-800) || `Exit code ${code}`;
         console.error('[builder] build failed:', errMsg.slice(0, 200));
         await sendToTelegram(`Build failed (exit ${code}):\n\n${errMsg}`);
-        resolve({ success: false, reason: errMsg });
+        resolve();
       }
     });
 
@@ -137,9 +162,10 @@ async function builder(userMessage, sendToTelegram, pendingConfirmations, chatId
       clearInterval(ticker);
       console.error('[builder] spawn error:', err.message);
       await sendToTelegram(`Spawn error: ${err.message}`);
-      resolve({ success: false, reason: err.message });
+      resolve();
     });
   });
 }
 
 module.exports = builder;
+module.exports.registerNewAgent = registerNewAgent;

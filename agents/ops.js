@@ -132,4 +132,7 @@ async function ops(userMessage, sendToTelegram) {
   }
 }
 
-module.exports = { ops, getRecentErrors, stateEmoji, fmtTime };
+module.exports = ops;
+module.exports.getRecentErrors = getRecentErrors;
+module.exports.stateEmoji = stateEmoji;
+module.exports.fmtTime = fmtTime;

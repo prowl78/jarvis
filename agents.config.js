@@ -1,0 +1,15 @@
+module.exports = [
+  { intent: 'projects',     agent: 'project-manager', description: 'project status, tasks, blockers, whats next, Shrody/OnlyHuman/Caligulas/JARVIS progress' },
+  { intent: 'builder',      agent: 'builder',         description: 'build, fix, create, code, deploy, make something technical' },
+  { intent: 'ideas',        agent: 'ideas',           description: 'capture ideas, park thoughts, remember something for later' },
+  { intent: 'finance',      agent: 'finance',         description: 'revenue, money, Stripe, payments, how much earned' },
+  { intent: 'ops',          agent: 'ops',             description: 'server status, deployment, is site up or down, Vercel errors, crashes' },
+  { intent: 'caligulas',    agent: 'caligulas',       description: 'Caligulas post creation, counter-award content, monthly posts' },
+  { intent: 'comfyui',      agent: 'comfyui',         description: 'generate images, create visuals, artwork for any project' },
+  { intent: 'marketing',    agent: 'marketing',       description: 'marketing strategy, copywriting, distribution, influencer briefs' },
+  { intent: 'nutritionist', agent: 'nutritionist',    description: 'food, meals, nutrition, diet advice' },
+  { intent: 'trainer',      agent: 'trainer',         description: 'exercise, workouts, fitness, training plans' },
+  { intent: 'psychologist', agent: 'psychologist',    description: 'mental health, stress, feelings, personal reflection' },
+  { intent: 'security',     agent: 'security',        description: 'Mac security, suspicious processes, system integrity' },
+  { intent: 'general',      agent: null,              description: 'everything else, conversation, questions, advice' },
+];
