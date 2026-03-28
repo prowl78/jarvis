@@ -2,15 +2,21 @@ const { exec } = require('child_process');
 const agentsConfig = require('../agents.config');
 
 const EXAMPLES = [
-  { message: 'is shrody up',         intent: 'ops' },
-  { message: 'whats blocked',        intent: 'projects' },
-  { message: "what's blocked",       intent: 'projects' },
-  { message: 'build a feature',      intent: 'builder' },
-  { message: 'fix the login bug',    intent: 'builder' },
-  { message: 'idea: add dark mode',  intent: 'ideas' },
-  { message: 'hey',                  intent: 'general' },
-  { message: 'how are the projects', intent: 'projects' },
-  { message: 'revenue this week',    intent: 'finance' },
+  { message: 'is shrody up',                        intent: 'ops' },
+  { message: 'whats blocked',                       intent: 'projects' },
+  { message: "what's blocked",                      intent: 'projects' },
+  { message: 'build a feature',                     intent: 'builder' },
+  { message: 'fix the login bug',                   intent: 'builder' },
+  { message: 'idea: add dark mode',                 intent: 'ideas' },
+  { message: 'hey',                                 intent: 'general' },
+  { message: 'how are the projects',                intent: 'projects' },
+  { message: 'revenue this week',                   intent: 'finance' },
+  { message: 'influencer brief for shrody',         intent: 'marketing' },
+  { message: 'caption for shrody',                  intent: 'marketing' },
+  { message: 'post for caligulas',                  intent: 'marketing' },
+  { message: 'directory submission for onlyhuman',  intent: 'marketing' },
+  { message: 'write copy for',                      intent: 'marketing' },
+  { message: 'draft an email',                      intent: 'marketing' },
 ];
 
 function buildPrompt(message) {
