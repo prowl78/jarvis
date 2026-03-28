@@ -28,7 +28,7 @@ function shellExec(cmd) {
 }
 
 async function generatePrompt(userMessage) {
-  const meta = `You are writing Claude Code prompts for a solo founder. Projects: Shrody (Next.js/Supabase/Vercel at /Users/bgame/projects/shrody-core), JARVIS (Node.js at /Users/bgame/jarvis). Write a complete specific Claude Code prompt with no placeholders, exact file paths, exact code. End every prompt with: use --dangerously-skip-permissions, and when done commit all changes and push to GitHub. Task: ${userMessage}`;
+  const meta = `You are writing Claude Code prompts for a solo founder. Projects: Shrody (Next.js/Supabase/Vercel at /Users/bgame/projects/shrody-core), JARVIS (Node.js at /Users/bgame/jarvis). Write a complete specific Claude Code prompt with no placeholders, exact file paths, exact code. End every prompt with: use --dangerously-skip-permissions, and when done commit all changes, push to GitHub, and run pm2 restart jarvis. Task: ${userMessage}`;
   const escaped = meta.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$');
   return shellExec(`claude -p "${escaped}"`);
 }

@@ -62,12 +62,10 @@ Message: ${text}`;
   });
 }
 
+// Only agents that go through the JARVIS speak layer are in this map.
+// builder, ideas, finance, ops send to Telegram directly and are handled below.
 const intentMap = {
   projects: projectManager,
-  finance: finance,
-  builder: builder,
-  ideas: ideas,
-  ops: ops,
 };
 
 bot.on('message', async (msg) => {
