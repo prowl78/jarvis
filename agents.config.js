@@ -6,7 +6,7 @@ module.exports = [
   { intent: 'ops',          agent: 'ops',             description: 'server status, deployment, is site up or down, Vercel errors, crashes' },
   { intent: 'caligulas',    agent: 'caligulas',       description: 'Caligulas post creation, counter-award content, monthly posts' },
   { intent: 'comfyui',      agent: 'comfyui',         description: 'generate images, create visuals, artwork for any project' },
-  { intent: 'marketing',    agent: 'marketing',       description: 'marketing strategy, copywriting, distribution, influencer briefs' },
+  { intent: 'marketing',    agent: 'marketing',       description: 'copywriting, captions, emails, influencer briefs, directory submissions, post drafts for any product' },
   { intent: 'nutritionist', agent: 'nutritionist',    description: 'food, meals, nutrition, diet advice' },
   { intent: 'trainer',      agent: 'trainer',         description: 'exercise, workouts, fitness, training plans' },
   { intent: 'psychologist', agent: 'psychologist',    description: 'mental health, stress, feelings, personal reflection' },
