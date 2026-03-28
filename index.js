@@ -71,7 +71,7 @@ bot.on('message', async (msg) => {
     console.log('[index] intent:', intent);
 
     const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
-    const context = { chatId, pendingConfirmations };
+    const context = { chatId, pendingConfirmations, bot };
 
     let handled = false;
 

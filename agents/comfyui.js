@@ -47,7 +47,8 @@ function extractPrompt(message) {
     .trim();
 }
 
-async function comfyui(userMessage, sendToTelegram) {
+async function comfyui(userMessage, sendToTelegram, context = {}) {
+  const { chatId, bot } = context;
   const prompt = extractPrompt(userMessage);
   const options = parseOptions(userMessage);
 
@@ -57,7 +58,7 @@ async function comfyui(userMessage, sendToTelegram) {
   }
 
   appendLog(LOG, `**Prompt:** ${prompt} | **Options:** ${JSON.stringify(options)}`);
-  await generateForTelegram(prompt, options, sendToTelegram);
+  await generateForTelegram(prompt, options, chatId, bot, sendToTelegram);
 }
 
 module.exports = comfyui;
