@@ -86,7 +86,11 @@ bot.on('message', async (msg) => {
       agentOutput = text;
     }
 
-    const reply = await claudeSpeak(agentOutput);
+    const agentText = typeof agentOutput === 'object'
+      ? JSON.stringify(agentOutput, null, 2)
+      : String(agentOutput);
+
+    const reply = await claudeSpeak(agentText);
     bot.sendMessage(msg.chat.id, reply);
   } catch (err) {
     console.error('handler error:', err);
