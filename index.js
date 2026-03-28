@@ -6,7 +6,8 @@ const projectManager = require('./agents/project-manager');
 const finance = require('./agents/finance');
 const builder = require('./agents/builder');
 const ideas = require('./agents/ideas');
-const ops = require('./agents/ops');
+const { ops } = require('./agents/ops');
+const startCron = require('./cron');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
@@ -15,6 +16,9 @@ const bot = new TelegramBot(token, { polling: true });
 const pendingConfirmations = new Map();
 
 console.log('JARVIS listening');
+
+const alertChatId = process.env.TELEGRAM_CHAT_ID;
+startCron((msg_text) => bot.sendMessage(alertChatId, msg_text));
 
 const JARVIS_SYSTEM = `You are JARVIS, a personal AI chief of staff for Boss (Brian Game), a solo founder in Sydney building Shrody (what-if simulation engine), OnlyHuman (NDIS companionship service), and Caligulas (counter-award institution). You are terse, intelligent, and direct. You call the user Boss. You never waffle. You synthesise information and give clean answers. When agents return data, you format it into a single coherent response in your voice.`;
 
@@ -111,6 +115,14 @@ bot.on('message', async (msg) => {
       console.log('[index] routing to finance with message:', text);
       const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
       await finance(text, sendToTelegram);
+      return;
+    }
+
+    if (intent === 'ops') {
+      // Ops replies directly to Telegram — bypass JARVIS speak layer
+      console.log('[index] routing to ops with message:', text);
+      const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
+      await ops(text, sendToTelegram);
       return;
     }
 
