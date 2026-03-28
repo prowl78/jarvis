@@ -26,6 +26,10 @@ const EXAMPLES = [
   { message: 'update meta for shrody',              intent: 'seo' },
   { message: 'content gaps for shrody',             intent: 'seo' },
   { message: 'aio checklist',                       intent: 'seo' },
+  { message: 'market scan for shrody',              intent: 'competitor' },
+  { message: 'market scan for onlyhuman',           intent: 'competitor' },
+  { message: 'monitor ai decision making',          intent: 'competitor' },
+  { message: 'positioning for shrody',              intent: 'competitor' },
 ];
 
 function buildPrompt(message) {
