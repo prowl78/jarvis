@@ -32,7 +32,17 @@ function claudeSpeak(userMessage) {
 
 function classifyIntent(text) {
   return new Promise((resolve) => {
-    const prompt = `Classify this message into exactly one of these intents: brief / status / projects / money / stripe / finance / revenue / build / fix / create / make / deploy / idea / park / remember / error / monitor / vercel / ops / unknown. Reply with only the intent word, nothing else. Message: ${text}`;
+    const prompt = `Classify this message into exactly one of these intents and reply with only the intent word, nothing else.
+
+Intents:
+- projects: anything about project status, what's blocked, what's next, task updates, mark done, add task, "how are projects", "status update", "what's next on X", "blocked tasks", "what's blocked", "next on X", "brief", "project status"
+- finance: money, stripe, revenue, invoices, payments, MRR, cashflow
+- builder: build, fix, create, make, deploy, code, ship, PR
+- ideas: idea, park, remember, note, log this
+- ops: vercel, deployment, error, monitor, server, downtime, logs
+- unknown: anything else
+
+Message: ${text}`;
     const escaped = prompt.replace(/"/g, '\\"');
     exec(`claude -p "${escaped}"`, (err, stdout, stderr) => {
       if (err) {
@@ -46,24 +56,10 @@ function classifyIntent(text) {
 }
 
 const intentMap = {
-  brief: projectManager,
-  status: projectManager,
   projects: projectManager,
-  money: finance,
-  stripe: finance,
   finance: finance,
-  revenue: finance,
-  build: builder,
-  fix: builder,
-  create: builder,
-  make: builder,
-  deploy: builder,
-  idea: ideas,
-  park: ideas,
-  remember: ideas,
-  error: ops,
-  monitor: ops,
-  vercel: ops,
+  builder: builder,
+  ideas: ideas,
   ops: ops,
 };
 
