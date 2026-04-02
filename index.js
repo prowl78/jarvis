@@ -106,12 +106,18 @@ bot.on('message', async (msg) => {
   const text = msg.text || '';
   const chatId = msg.chat.id;
 
-  // Builder confirmation gate — intercept yes/cancel reply
+  // Builder confirmation gate — only intercept actual yes/no/cancel responses
   if (pendingConfirmations.has(chatId)) {
-    const callback = pendingConfirmations.get(chatId);
+    const lower = text.trim().toLowerCase();
+    const isConfirmation = /^(yes|y|no|n|cancel|confirmed|nope|do it|go ahead|abort|stop)$/i.test(lower);
+    if (isConfirmation) {
+      const callback = pendingConfirmations.get(chatId);
+      pendingConfirmations.delete(chatId);
+      callback(text);
+      return;
+    }
+    // Not a confirmation — clear the pending and route normally
     pendingConfirmations.delete(chatId);
-    callback(text);
-    return;
   }
 
   try {
