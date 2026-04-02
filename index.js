@@ -9,9 +9,7 @@ const agentsConfig = require('./agents.config');
 const classifyIntent = require('./agents/router');
 const startCron = require('./cron');
 const { getTimeContext } = require('./lib/time-context');
-const { handleIncomingImage } = require('./lib/image-handler');
-const { autoFix } = require('./agents/builder');
-const checkCapabilities = require('./lib/capability-check');
+const { analyseImage } = require('./agents/nutritionist');
 
 const TMP_DIR = path.join(__dirname, 'tmp');
 fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -19,7 +17,7 @@ fs.mkdirSync(TMP_DIR, { recursive: true });
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// chatId -> callback(replyText) — used by builder confirmation gate
+// chatId -> callback(replyText) — used by agent confirmation gates
 const pendingConfirmations = new Map();
 
 console.log('JARVIS listening');
@@ -27,7 +25,7 @@ console.log('JARVIS listening');
 const alertChatId = process.env.TELEGRAM_CHAT_ID;
 startCron((msg_text) => bot.sendMessage(alertChatId, msg_text));
 
-const JARVIS_SYSTEM = `You are JARVIS, a personal AI chief of staff for Boss (Brian Game), a solo founder in Sydney building Shrody (what-if simulation engine), OnlyHuman (NDIS companionship service), and Caligulas (counter-award institution). You are terse, intelligent, and direct. You call the user Boss. You never waffle. You synthesise information and give clean answers. When agents return data, you format it into a single coherent response in your voice.`;
+const JARVIS_SYSTEM = `You are JARVIS, a personal AI chief of staff for Boss (Brian Game), a solo founder in Sydney. Your job is to manage his projects (Shrody, OnlyHuman, Caligulas, Wombo, StoryBytes), support his fitness and nutrition, provide a space for reflection, capture creative ideas, and generate images via ComfyUI. You are terse, intelligent, and direct. You call the user Boss. You never waffle. You have no coding or marketing capability — if asked to build or market something, tell Boss plainly that you are not set up for that.`;
 
 function buildTimeInstruction(ctx) {
   const lines = [];
@@ -63,14 +61,11 @@ function claudeSpeak(userMessage, timeCtx) {
   });
 }
 
-// Load an agent function from ./agents/[name].js
-// Returns null if the file doesn't exist.
 function loadAgent(agentName) {
   if (!agentName) return null;
   try {
     const mod = require(path.join(__dirname, 'agents', agentName));
     if (typeof mod === 'function') return mod;
-    // Named export fallback (e.g. module.exports = { agentName: fn })
     if (typeof mod[agentName] === 'function') return mod[agentName];
     const fn = Object.values(mod).find(v => typeof v === 'function');
     return fn || null;
@@ -86,7 +81,6 @@ bot.on('photo', async (msg) => {
   const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
 
   try {
-    // Highest resolution = last element in photo array
     const fileId = msg.photo[msg.photo.length - 1].file_id;
     const fileLink = await bot.getFileLink(fileId);
     const tmpPath = path.join(TMP_DIR, `input-${Date.now()}.png`);
@@ -95,7 +89,9 @@ bot.on('photo', async (msg) => {
     fs.writeFileSync(tmpPath, Buffer.from(response.data));
     console.log(`[index] photo saved to ${tmpPath}, caption: "${caption}"`);
 
-    await handleIncomingImage(tmpPath, caption, chatId, bot, sendToTelegram);
+    await analyseImage(tmpPath, caption, sendToTelegram);
+
+    try { fs.unlinkSync(tmpPath); } catch {}
   } catch (err) {
     console.error('[index] photo handler error:', err.message);
     await sendToTelegram('Had trouble processing that image, Boss.');
@@ -108,7 +104,7 @@ bot.on('message', async (msg) => {
   const text = msg.text || '';
   const chatId = msg.chat.id;
 
-  // Builder confirmation gate — only intercept actual yes/no/cancel responses
+  // Confirmation gate — only intercept actual yes/no/cancel responses
   if (pendingConfirmations.has(chatId)) {
     const lower = text.trim().toLowerCase();
     const isConfirmation = /^(yes|y|no|n|cancel|confirmed|nope|do it|go ahead|abort|stop)$/i.test(lower);
@@ -118,7 +114,6 @@ bot.on('message', async (msg) => {
       callback(text);
       return;
     }
-    // Not a confirmation — clear the pending and route normally
     pendingConfirmations.delete(chatId);
   }
 
@@ -129,16 +124,6 @@ bot.on('message', async (msg) => {
 
     const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
     const context = { chatId, pendingConfirmations, bot, timeCtx };
-
-    // Capability gate — skip for general/self-fix which don't hit external APIs
-    if (intent !== 'general' && intent !== 'self-fix') {
-      const cap = await checkCapabilities(intent, text);
-      if (cap.blocked) {
-        console.log('[index] capability blocked:', cap.reason);
-        await sendToTelegram(`Can't do that yet Boss. ${cap.reason}\n\nTo fix: ${cap.suggestion}`);
-        return;
-      }
-    }
 
     let handled = false;
 
@@ -160,11 +145,6 @@ bot.on('message', async (msg) => {
         const reply = await claudeSpeak(agentText, timeCtx);
         bot.sendMessage(chatId, reply);
       }
-
-    } else if (intent === 'self-fix') {
-      handled = true;
-      console.log('[index] self-fix intent — calling autoFix without confirmation');
-      await autoFix(text, sendToTelegram, context);
 
     } else {
       const configEntry = agentsConfig.find(c => c.intent === intent);

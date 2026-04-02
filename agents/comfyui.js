@@ -1,64 +1,49 @@
-const { generateForTelegram } = require('../lib/comfyui');
-const { appendLog } = require('../lib/life-agent');
+const fs = require('fs');
+const path = require('path');
+const { generateImage } = require('../lib/comfyui');
 
-const LOG = 'comfyui';
-
-const STYLE_KEYWORDS = {
-  photo: 'photorealistic, 8k, sharp focus',
-  art: 'digital art, concept art, vibrant colors',
-  logo: 'flat design, vector style, clean logo',
-  portrait: 'portrait photography, studio lighting, detailed face',
-  product: 'product photography, white background, commercial',
-};
-
-function parseOptions(message) {
-  const options = {};
-  const lower = message.toLowerCase();
-
-  // Width/height overrides e.g. "1920x1080"
-  const sizeMatch = message.match(/(\d{3,4})\s*[x×]\s*(\d{3,4})/i);
-  if (sizeMatch) {
-    options.width = parseInt(sizeMatch[1]);
-    options.height = parseInt(sizeMatch[2]);
-  }
-
-  // Style detection
-  for (const [key, val] of Object.entries(STYLE_KEYWORDS)) {
-    if (lower.includes(key)) {
-      options.style = val;
-      break;
-    }
-  }
-
-  // Steps override e.g. "50 steps"
-  const stepsMatch = message.match(/(\d+)\s*steps?/i);
-  if (stepsMatch) options.steps = parseInt(stepsMatch[1]);
-
-  return options;
-}
+const TMP_DIR = path.join(__dirname, '..', 'tmp');
 
 function extractPrompt(message) {
   return message
-    .replace(/^(generate|create|make|draw|render|image of|picture of|photo of|generate image|create image)\s*/i, '')
-    .replace(/\b\d+\s*[x×]\s*\d+\b/i, '')
-    .replace(/\b\d+\s*steps?\b/i, '')
-    .replace(/\b(photo|art|logo|portrait|product)\b/gi, (m) => (STYLE_KEYWORDS[m.toLowerCase()] ? '' : m))
+    .replace(/^(generate|create|make|draw|render|image of|picture of|photo of|generate image|create image|visualise|visualize)\s*/i, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 async function comfyui(userMessage, sendToTelegram, context = {}) {
   const { chatId, bot } = context;
-  const prompt = extractPrompt(userMessage);
-  const options = parseOptions(userMessage);
 
+  const prompt = extractPrompt(userMessage);
   if (!prompt) {
     await sendToTelegram('What do you want me to generate? Give me a description.');
     return;
   }
 
-  appendLog(LOG, `**Prompt:** ${prompt} | **Options:** ${JSON.stringify(options)}`);
-  await generateForTelegram(prompt, options, chatId, bot, sendToTelegram);
+  await sendToTelegram('Generating image...');
+
+  let imageBuffer;
+  try {
+    imageBuffer = await generateImage(prompt);
+  } catch (err) {
+    const msg = err.message === 'OFFLINE'
+      ? 'ComfyUI is offline. Start it with: cd ~/ComfyUI && python main.py --listen'
+      : `Image generation failed Boss: ${err.message}`;
+    await sendToTelegram(msg);
+    return;
+  }
+
+  fs.mkdirSync(TMP_DIR, { recursive: true });
+  const outPath = path.join(TMP_DIR, `output-${Date.now()}.png`);
+  fs.writeFileSync(outPath, imageBuffer);
+
+  try {
+    await bot.sendPhoto(chatId, outPath, { caption: 'Here you go Boss.' });
+  } catch (err) {
+    await sendToTelegram(`Image generation failed Boss: ${err.message}`);
+  } finally {
+    try { fs.unlinkSync(outPath); } catch {}
+  }
 }
 
 module.exports = comfyui;

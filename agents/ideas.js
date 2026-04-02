@@ -1,12 +1,26 @@
 const { exec } = require('child_process');
-const obsidian = require('../lib/obsidian');
+const fs = require('fs');
+const path = require('path');
 
-const BUCKETS = ['shrody_backlog', 'story_bytes', 'new_product', 'onlyhuman', 'caligulas', 'jarvis'];
+const IDEAS_DIR = '/Users/bgame/Documents/Obsidian Vault/ideas';
 
-const CLASSIFY_SYSTEM = `You are classifying ideas for a solo founder. Buckets: shrody_backlog (features for Shrody what-if simulation app), story_bytes (creative writing, stories, scripts), new_product (new business ideas), onlyhuman (ideas for NDIS companionship service), caligulas (ideas for counter-award institution), jarvis (ideas for the JARVIS AI assistant). Reply with only the bucket name, nothing else.`;
+const BUCKET_FILES = {
+  books:   path.join(IDEAS_DIR, 'books.md'),
+  stories: path.join(IDEAS_DIR, 'stories.md'),
+  general: path.join(IDEAS_DIR, 'general.md'),
+};
+
+const CLASSIFY_SYSTEM = `You are classifying a creative idea for a solo founder and writer. Reply with only one word — the bucket name.
+
+Buckets:
+- books: book ideas, non-fiction concepts, memoir ideas, publishing ideas
+- stories: fiction story ideas, narrative concepts, characters, plot ideas, scripts, screenplays
+- general: everything else — creative concepts, product ideas, random inspiration
+
+Reply with only: books, stories, or general`;
 
 function stripPrefix(text) {
-  return text.replace(/^(idea|park|remember|note|log this)[:\s]*/i, '').trim();
+  return text.replace(/^(idea|park|remember|note|log this|book idea|story idea)[:\s]*/i, '').trim();
 }
 
 function classifyIdea(ideaText) {
@@ -16,13 +30,21 @@ function classifyIdea(ideaText) {
     exec(`claude -p "${escaped}"`, (err, stdout) => {
       if (err) {
         console.error('[ideas] classify error:', err.message);
-        resolve('new_product');
+        resolve('general');
         return;
       }
       const result = stdout.trim().toLowerCase();
-      resolve(BUCKETS.includes(result) ? result : 'new_product');
+      resolve(Object.keys(BUCKET_FILES).includes(result) ? result : 'general');
     });
   });
+}
+
+function saveIdea(bucket, text) {
+  const file = BUCKET_FILES[bucket];
+  fs.mkdirSync(IDEAS_DIR, { recursive: true });
+  const timestamp = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' });
+  const entry = `\n- ${text} _(${timestamp})_\n`;
+  fs.appendFileSync(file, entry, 'utf8');
 }
 
 async function ideas(userMessage, sendToTelegram) {
@@ -35,20 +57,19 @@ async function ideas(userMessage, sendToTelegram) {
     console.log('[ideas] classified as:', bucket);
   } catch (err) {
     console.error('[ideas] classification failed:', err.message);
-    bucket = 'new_product';
+    bucket = 'general';
   }
 
   try {
-    obsidian.appendIdea(bucket, ideaText);
-    console.log('[ideas] appended to Obsidian');
+    saveIdea(bucket, ideaText);
+    console.log('[ideas] saved to', BUCKET_FILES[bucket]);
   } catch (err) {
-    console.error('[ideas] Obsidian write failed:', err.message);
+    console.error('[ideas] save failed:', err.message);
     await sendToTelegram(`Classified as ${bucket} but failed to save: ${err.message}`);
-    return { success: false, reason: err.message };
+    return;
   }
 
   await sendToTelegram(`Parked to ${bucket}: ${ideaText}`);
-  return { success: true, bucket, ideaText };
 }
 
 module.exports = ideas;

@@ -1,3 +1,5 @@
+const fs = require('fs');
+const { exec } = require('child_process');
 const { readProfile, saveProfile, appendLog, stepOnboarding, claudeRun } = require('../lib/life-agent');
 
 const AGENT = 'nutritionist';
@@ -87,4 +89,51 @@ async function nutritionist(userMessage, sendToTelegram, context = {}) {
   await sendToTelegram(response);
 }
 
+async function analyseImage(imagePath, caption, sendToTelegram) {
+  await sendToTelegram('Analysing that...');
+
+  const systemPrompt = 'You are a nutritionist. Analyse this food photo and estimate: total calories, protein (g), carbs (g), fat (g). Be specific. List each food item visible and its estimated macros. End with a total. Be direct, no fluff.';
+  const userContent = caption
+    ? `Caption: "${caption}". Analyse this food photo.`
+    : 'Analyse this food photo.';
+
+  const escaped = (systemPrompt + '\n\n' + userContent)
+    .replace(/"/g, '\\"')
+    .replace(/`/g, '\\`')
+    .replace(/\$/g, '\\$');
+
+  return new Promise((resolve) => {
+    exec(
+      `claude -p "${escaped}" --image "${imagePath}"`,
+      { maxBuffer: 5 * 1024 * 1024 },
+      async (err, stdout, stderr) => {
+        let result;
+        if (err) {
+          console.warn('[nutritionist] --image flag failed, trying base64 inline:', stderr.slice(0, 100));
+          try {
+            const base64 = fs.readFileSync(imagePath).toString('base64');
+            const fallbackPrompt = `${systemPrompt}\n\n[Image base64: data:image/png;base64,${base64}]\n\n${userContent}`;
+            const fe = fallbackPrompt.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+            result = await new Promise((res, rej) => {
+              exec(`claude -p "${fe}"`, { maxBuffer: 10 * 1024 * 1024 }, (e2, out2, se2) => {
+                if (e2) rej(new Error(se2 || e2.message));
+                else res(out2.trim());
+              });
+            });
+          } catch (fallbackErr) {
+            result = `Could not analyse image: ${fallbackErr.message}`;
+          }
+        } else {
+          result = stdout.trim();
+        }
+
+        appendLog('nutrition', `**Food photo analysed:**\nCaption: ${caption || 'none'}\nResult: ${result}`);
+        await sendToTelegram(result);
+        resolve();
+      }
+    );
+  });
+}
+
 module.exports = nutritionist;
+module.exports.analyseImage = analyseImage;

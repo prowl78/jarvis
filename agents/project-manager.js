@@ -3,24 +3,26 @@ const obsidian = require('../lib/obsidian');
 // ---------------------------------------------------------------------------
 // Project catalogue + fuzzy aliases
 // ---------------------------------------------------------------------------
-const PROJECTS = ['shrody', 'onlyhuman', 'caligulas', 'jarvis'];
+const PROJECTS = ['shrody', 'onlyhuman', 'caligulas', 'wombo', 'storybytes'];
 
 const PROJECT_ALIASES = {
-  shrody:         'shrody',
-  'sim thing':    'shrody',
-  simulation:     'shrody',
-  'what-if':      'shrody',
-  whatif:         'shrody',
-  onlyhuman:      'onlyhuman',
-  'only human':   'onlyhuman',
-  ndis:           'onlyhuman',
-  companionship:  'onlyhuman',
-  caligulas:      'caligulas',
-  'counter-award':'caligulas',
-  counteraward:   'caligulas',
-  award:          'caligulas',
-  jarvis:         'jarvis',
-  bot:            'jarvis',
+  shrody:          'shrody',
+  'sim thing':     'shrody',
+  simulation:      'shrody',
+  'what-if':       'shrody',
+  whatif:          'shrody',
+  onlyhuman:       'onlyhuman',
+  'only human':    'onlyhuman',
+  ndis:            'onlyhuman',
+  companionship:   'onlyhuman',
+  caligulas:       'caligulas',
+  'counter-award': 'caligulas',
+  counteraward:    'caligulas',
+  award:           'caligulas',
+  wombo:           'wombo',
+  storybytes:      'storybytes',
+  'story bytes':   'storybytes',
+  stories:         'storybytes',
 };
 
 function resolveProject(text) {
