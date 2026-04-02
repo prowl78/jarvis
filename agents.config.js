@@ -16,5 +16,6 @@ module.exports = [
   { intent: 'competitor',   agent: 'competitor',      description: 'market scans, competitive analysis, positioning, trend monitoring for any product' },
   { intent: 'tokens',       agent: 'token-manager',   description: 'token usage, memory compaction, log management, context size monitoring' },
   { intent: 'improvement',  agent: 'improvement',     description: 'JARVIS improvements, new agent ideas, GitHub research, npm updates, open source tools, better approaches' },
+  { intent: 'self-fix',     agent: 'builder',         description: 'JARVIS autonomously fixes or improves itself without confirmation' },
   { intent: 'general',      agent: null,              description: 'everything else, conversation, questions, advice' },
 ];

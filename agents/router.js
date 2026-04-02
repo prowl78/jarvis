@@ -52,6 +52,11 @@ const EXAMPLES = [
   { message: 'find better approach for',            intent: 'improvement' },
   { message: 'npm outdated',                        intent: 'improvement' },
   { message: 'how can jarvis improve',              intent: 'improvement' },
+  { message: 'fix yourself',                        intent: 'self-fix' },
+  { message: 'self repair',                         intent: 'self-fix' },
+  { message: "you're broken, fix it",               intent: 'self-fix' },
+  { message: 'auto fix the router',                 intent: 'self-fix' },
+  { message: 'heal yourself',                       intent: 'self-fix' },
 ];
 
 function buildPrompt(message) {

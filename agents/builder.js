@@ -172,5 +172,88 @@ async function builder(userMessage, sendToTelegram, context = {}) {
   });
 }
 
+// autoFix: like builder but skips confirmation — immediately executes via Claude Code
+async function autoFix(userMessage, sendToTelegram, context = {}) {
+  console.log('[builder] AUTOFIX CALLED with:', userMessage);
+
+  await sendToTelegram('Auto-fix initiated Boss, generating and executing now...');
+
+  let generatedPrompt;
+  try {
+    generatedPrompt = await generatePrompt(userMessage);
+    console.log('[builder] AUTOFIX PROMPT:', generatedPrompt);
+  } catch (err) {
+    console.error('[builder] autoFix generatePrompt error:', err.message);
+    await sendToTelegram(`Failed to generate prompt: ${err.message}`);
+    return;
+  }
+
+  const projectDir = detectProject(userMessage + ' ' + generatedPrompt);
+  const cwd = PROJECT_PATHS[projectDir];
+  console.log('[builder] AUTOFIX PROJECT:', projectDir, '->', cwd);
+
+  await sendToTelegram(`Executing in ${cwd}...`);
+
+  return new Promise((resolve) => {
+    const escapedPrompt = generatedPrompt
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/`/g, '\\`')
+      .replace(/\$/g, '\\$');
+
+    const cmd = `cd "${cwd}" && claude --dangerously-skip-permissions -p "${escapedPrompt}"`;
+    console.log('[builder] AUTOFIX SPAWNING CLAUDE CODE in', cwd);
+
+    const child = spawn('bash', ['-c', cmd], { env: process.env });
+    const outputChunks = [];
+    const errorChunks = [];
+
+    child.stdout.on('data', (d) => {
+      const chunk = d.toString();
+      console.log('[builder] autofix stdout:', chunk.slice(0, 120));
+      outputChunks.push(chunk);
+    });
+
+    child.stderr.on('data', (d) => {
+      const chunk = d.toString();
+      console.error('[builder] autofix stderr:', chunk.slice(0, 120));
+      errorChunks.push(chunk);
+    });
+
+    let elapsed = 30;
+    const ticker = setInterval(async () => {
+      await sendToTelegram(`Auto-fix still running... (${elapsed}s elapsed)`);
+      elapsed += 30;
+    }, 30_000);
+
+    child.on('close', async (code) => {
+      clearInterval(ticker);
+      console.log('[builder] autofix closed with code:', code);
+
+      const stdout = outputChunks.join('').trim();
+      const stderr = errorChunks.join('').trim();
+
+      if (code === 0) {
+        const summary = stdout.slice(-1000) || 'Done.';
+        await sendToTelegram(`Auto-fix complete.\n\n${summary}`);
+        resolve();
+      } else {
+        const errMsg = stderr.slice(-800) || stdout.slice(-800) || `Exit code ${code}`;
+        console.error('[builder] autofix failed:', errMsg.slice(0, 200));
+        await sendToTelegram(`Auto-fix failed (exit ${code}):\n\n${errMsg}`);
+        resolve();
+      }
+    });
+
+    child.on('error', async (err) => {
+      clearInterval(ticker);
+      console.error('[builder] autofix spawn error:', err.message);
+      await sendToTelegram(`Spawn error: ${err.message}`);
+      resolve();
+    });
+  });
+}
+
 module.exports = builder;
 module.exports.registerNewAgent = registerNewAgent;
+module.exports.autoFix = autoFix;

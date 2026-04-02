@@ -10,6 +10,7 @@ const classifyIntent = require('./agents/router');
 const startCron = require('./cron');
 const { getTimeContext } = require('./lib/time-context');
 const { handleIncomingImage } = require('./lib/image-handler');
+const { autoFix } = require('./agents/builder');
 
 const TMP_DIR = path.join(__dirname, 'tmp');
 fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -148,6 +149,11 @@ bot.on('message', async (msg) => {
         const reply = await claudeSpeak(agentText, timeCtx);
         bot.sendMessage(chatId, reply);
       }
+
+    } else if (intent === 'self-fix') {
+      handled = true;
+      console.log('[index] self-fix intent — calling autoFix without confirmation');
+      await autoFix(text, sendToTelegram, context);
 
     } else {
       const configEntry = agentsConfig.find(c => c.intent === intent);
