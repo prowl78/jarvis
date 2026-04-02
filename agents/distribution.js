@@ -1,6 +1,7 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const webSearch = require('../lib/web-search');
 
 const VAULT = '/Users/bgame/Documents/Obsidian Vault';
 const MARKETING_DIR = path.join(VAULT, 'marketing');
@@ -76,30 +77,79 @@ function parseCommand(message) {
 // Actions
 // ---------------------------------------------------------------------------
 async function findInfluencers(sendToTelegram) {
-  await sendToTelegram('Researching Shrody creator targets...');
+  await sendToTelegram('Searching the web for Shrody creator targets...');
 
-  const prompt = `Generate a list of 10 TikTok creator profiles to target for Shrody, a what-if simulation engine app.
+  const SHRODY_DIR = '/Users/bgame/jarvis/shrody';
+  fs.mkdirSync(SHRODY_DIR, { recursive: true });
 
-Target criteria:
-- Content niches: personality psychology, decision making, self improvement, life choices, what-if scenarios, alternate reality
-- Audience: AU-first but global OK
-- Size: 5k-50k followers (micro-influencers)
-- Engagement: 3%+ engagement rate
-- Tone fit: curious, thoughtful, analytical or playful
+  // Run 3 targeted searches in parallel
+  const [r1, r2, r3] = await Promise.all([
+    webSearch('MBTI personality psychology TikTok creator contact email', 10),
+    webSearch('enneagram attachment theory Instagram micro influencer email', 10),
+    webSearch('what if life decisions self improvement creator collaboration', 10),
+  ]);
 
-For each creator, provide:
-1. Suggested handle style (describe the type, e.g. @decisions.daily)
-2. Their content angle
-3. Why they fit Shrody
-4. Suggested collaboration hook
+  await sendToTelegram('Searches done. Deduplicating and analysing with Claude...');
 
-Format as a numbered list. Be specific and creative. These are target profile types, not real accounts.`;
+  // Combine and deduplicate by URL
+  const seen = new Set();
+  const combined = [...r1, ...r2, ...r3].filter(r => {
+    if (!r.url || seen.has(r.url)) return false;
+    seen.add(r.url);
+    return true;
+  });
 
-  const result = await claudeRun(prompt);
-  const content = `# Shrody Influencer Targets\n_${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}_\n\n${result}\n`;
-  const filepath = saveToVault(`shrody-influencers-${timestamp()}.md`, content);
+  console.log(`[distribution] combined search results: ${combined.length}`);
 
-  await sendToTelegram(`${result}\n\n——\nSaved to ${filepath}`);
+  const analysisPrompt = `You are analysing web search results to find micro-influencer contacts for Shrody, a what-if life simulation app. From these results, extract any creator names, social handles, and contact emails you can find. Score each for Shrody fit (1-5) based on how well they align with themes like decision-making, personality psychology, self improvement, or what-if scenarios. Return a JSON array of objects with these fields: name, platform, handle, email, fitScore, reason. If no real contacts are found, return an empty array [].
+
+Results:
+${JSON.stringify(combined, null, 2)}`;
+
+  let creators = [];
+  try {
+    const raw = await claudeRun(analysisPrompt);
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) creators = JSON.parse(match[0]);
+  } catch (err) {
+    console.error('[distribution] creator parse error:', err.message);
+  }
+
+  // Write creators-raw.md
+  const now = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' });
+  let rawMd = `# Shrody Creator Search — Raw Results\n_${now}_\n\n`;
+  if (creators.length === 0) {
+    rawMd += '_No contacts extracted from search results._\n\n';
+    rawMd += '## Raw Search Results\n\n';
+    combined.forEach((r, i) => {
+      rawMd += `### ${i + 1}. ${r.title}\n- URL: ${r.url}\n- ${r.snippet}\n\n`;
+    });
+  } else {
+    creators.forEach((c, i) => {
+      rawMd += `### ${i + 1}. ${c.name || 'Unknown'}\n`;
+      rawMd += `- **Platform:** ${c.platform || '—'}\n`;
+      rawMd += `- **Handle:** ${c.handle || '—'}\n`;
+      rawMd += `- **Email:** ${c.email || '—'}\n`;
+      rawMd += `- **Fit Score:** ${c.fitScore || '—'}/5\n`;
+      rawMd += `- **Reason:** ${c.reason || '—'}\n\n`;
+    });
+  }
+  fs.writeFileSync(path.join(SHRODY_DIR, 'creators-raw.md'), rawMd, 'utf8');
+
+  // Write outreach-tracker.md
+  let trackerMd = `# Shrody Outreach Tracker\n_${now}_\n\n`;
+  trackerMd += '| Creator | Platform | Handle | Email | Fit Score | Email Sent | Response | Notes |\n';
+  trackerMd += '|---------|----------|--------|-------|-----------|------------|----------|-------|\n';
+  if (creators.length === 0) {
+    trackerMd += '| — | — | — | — | — | — | — | No contacts found yet |\n';
+  } else {
+    creators.forEach(c => {
+      trackerMd += `| ${c.name || '—'} | ${c.platform || '—'} | ${c.handle || '—'} | ${c.email || '—'} | ${c.fitScore || '—'}/5 | | | |\n`;
+    });
+  }
+  fs.writeFileSync(path.join(SHRODY_DIR, 'outreach-tracker.md'), trackerMd, 'utf8');
+
+  await sendToTelegram(`Found ${creators.length} creators. Files saved to shrody/.`);
 }
 
 async function writeOutreach(handle, sendToTelegram) {
