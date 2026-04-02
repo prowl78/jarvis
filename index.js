@@ -11,6 +11,7 @@ const startCron = require('./cron');
 const { getTimeContext } = require('./lib/time-context');
 const { handleIncomingImage } = require('./lib/image-handler');
 const { autoFix } = require('./agents/builder');
+const checkCapabilities = require('./lib/capability-check');
 
 const TMP_DIR = path.join(__dirname, 'tmp');
 fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -128,6 +129,16 @@ bot.on('message', async (msg) => {
 
     const sendToTelegram = (msg_text) => bot.sendMessage(chatId, msg_text);
     const context = { chatId, pendingConfirmations, bot, timeCtx };
+
+    // Capability gate — skip for general/self-fix which don't hit external APIs
+    if (intent !== 'general' && intent !== 'self-fix') {
+      const cap = await checkCapabilities(intent, text);
+      if (cap.blocked) {
+        console.log('[index] capability blocked:', cap.reason);
+        await sendToTelegram(`Can't do that yet Boss. ${cap.reason}\n\nTo fix: ${cap.suggestion}`);
+        return;
+      }
+    }
 
     let handled = false;
 
