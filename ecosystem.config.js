@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'jarvis',
+      name: 'jarvis-pt',
       script: 'index.js',
       watch: false,
       restart_delay: 3000,
